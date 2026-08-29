@@ -320,8 +320,8 @@ if __name__ == "__main__":
         user_prompt = (
             f"Design exactly {n} AMP sequences with D-amino acids targeting {args.species}. "
             f"The target length is 10 - 20. Apply physicochemical filters for cationicity "
-            f"(range: 2 to 8) and hydrophobicity (range: -0.5 to 0.5). The preferred structure "
-            f"is alpha-helix. Use AMPGAN-v3 to generate. Please cross-reference with the protein "
+            f"(range: 2 to 8) and hydrophobicity (range: -0.5 to 0.5). "
+            f"Use AMPGAN-v3 to generate. Please cross-reference with the protein "
             f"database and explain the candidate."
         )
         agent = AMP_Agents(

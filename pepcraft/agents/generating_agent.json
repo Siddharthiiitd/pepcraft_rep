@@ -6,16 +6,12 @@
             "tool": "AMPGAN_v3",
             "description": "A Generative Adversarial Network (GAN)-based Antimicrobial Peptide (AMP) generator. The generated results are saved to folder_path/generated_sequences.csv.",
             "input": "min_length (int), max_length (int), num_generations (int), species_of_interest (str) {choice: 'ecoli','paeruginosa','kpneumoniae','saureus','bsubtilis','sepidermidis'}, folder_path (path to output folder)"
-        },
-        {
-            "tool": "Predict_Structure",
-            "description": "Predicts the 3D structures (in PDB format) of generated sequences. Due to high computational cost, this tool must only be used on a refined subset of sequences after filtering.",
-            "input": "folder_path (path to output folder)"
         }
     ],
     "context": [
         "The Generating Agent translates natural language constraints from the user into structured, machine-readable inputs specifically formatted for the agent's designated toolset.",
         "The Planning Agent provides natural language instructions for the desired tools, which the Generating Agent then parses and transforms into actionable, structured inputs.",
-        "First pass: generate exactly the user's requested count (N) and let filters run. After observing the pass rate p on this batch, compute the shortfall S = N − (candidates passed). For subsequent rounds, generate ⌈S / p⌉ candidates to cover the shortfall in one additional round. Cap any single generation call at 3N to bound cost. Stop generating once the cumulative passed count reaches N."
+        "First pass: generate exactly the user's requested count (N) and let filters run. After observing the pass rate p on this batch, compute the shortfall S = N \u2212 (candidates passed). For subsequent rounds, generate \u2308S / p\u2309 candidates to cover the shortfall in one additional round. Cap any single generation call at 3N to bound cost. Stop generating once the cumulative passed count reaches N.",
+        "Note: this deployment does not perform 3D structure prediction -- there is no structure-prediction tool available in this agent."
     ]
 }
