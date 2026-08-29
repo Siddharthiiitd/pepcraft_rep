@@ -15,13 +15,36 @@ from langchain_core.runnables import RunnableConfig
 
 from states import PlanState
 
-# --- API key: read from the environment, never hardcode it here. ---
-# Set it before running, e.g.:
-#   export GOOGLE_API_KEY="your-key-here"
+
+def _load_dotenv(env_path=".env"):
+    """Minimal .env loader -- no python-dotenv dependency required.
+    Reads KEY=VALUE lines from env_path (relative to cwd) and sets them
+    in os.environ, without overwriting anything already set for real."""
+    if not os.path.exists(env_path):
+        return
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+_load_dotenv()
+
+# --- API key: read from the environment (or the .env file above), never
+# hardcode it here. Put this in a .env file next to this script:
+#   GOOGLE_API_KEY=your-key-here
+# and make sure .env is in your .gitignore.
 if "GOOGLE_API_KEY" not in os.environ:
     raise RuntimeError(
-        "GOOGLE_API_KEY is not set in the environment. "
-        "Run `export GOOGLE_API_KEY=your-key-here` before launching this script."
+        "GOOGLE_API_KEY is not set. Add it to a .env file next to this script "
+        "(GOOGLE_API_KEY=your-key-here) or `export GOOGLE_API_KEY=your-key-here` "
+        "before launching."
     )
 
 MAX_RESPONSE_RETRIES = 5   # cap on malformed-JSON retries for a single LLM call
