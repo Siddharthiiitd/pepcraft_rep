@@ -1,40 +1,57 @@
-from langgraph.graph import StateGraph, START, END
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
-
-from langchain_core.runnables import RunnableConfig
+import argparse
 import time
 import os
 import shutil
 import re
 import json
-import torch 
-import pandas as pd
-
+import importlib
 from pathlib import Path
+from typing import Literal
+
+import pandas as pd
+from langgraph.graph import StateGraph, START, END
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.runnables import RunnableConfig
 
 from states import PlanState
-from typing import Literal
-import importlib
-import sys
-os.environ["GOOGLE_API_KEY"] = "[ENTER GOOGLE API KEYS]"
-def call_tool(tool: str, agent:str, input_data: dict):
-    # "tools.math.add"
 
+# --- API key: read from the environment, never hardcode it here. ---
+# Set it before running, e.g.:
+#   export GOOGLE_API_KEY="your-key-here"
+if "GOOGLE_API_KEY" not in os.environ:
+    raise RuntimeError(
+        "GOOGLE_API_KEY is not set in the environment. "
+        "Run `export GOOGLE_API_KEY=your-key-here` before launching this script."
+    )
+
+MAX_RESPONSE_RETRIES = 5   # cap on malformed-JSON retries for a single LLM call
+MAX_EXECUTOR_RETRIES = 5   # cap on tool-execution-error retries per plan step
+
+
+def call_tool(tool: str, agent: str, input_data: dict):
     module = importlib.import_module(f"tools.{agent}.{tool}")
     func = getattr(module, tool)
     return func(input_data)
 
 
 class AMP_Agents:
-    def __init__(self, user_prompt: str, planner_model_id = "gemma-4-31b-it", executor_model_id = "gemma-4-31b-it", num_gen = 20):
+    def __init__(self, user_prompt: str, run_id: str, output_base: str,
+                 planner_model_id="gemini-3.1-pro-preview",
+                 executor_model_id="gemini-3.1-flash-lite-preview",
+                 num_gen=20):
         self.num_gen = num_gen
-        os.system(f"mkdir -p /home/raymondlab/Documents/AMP-Agent/output_{sys.argv[1]}_pro_{self.num_gen}/")
-        os.system(f"rm -r /home/raymondlab/Documents/AMP-Agent/output_{sys.argv[1]}_pro_{self.num_gen}/generated_sequences.csv")
-        self.user_prompt = user_prompt  
+        self.run_id = run_id
+
+        # Portable output dir -- no hardcoded /home/raymondlab path.
+        self.output_dir = Path(output_base) / f"output_{self.run_id}_pro_{self.num_gen}"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        seq_csv = self.output_dir / "generated_sequences.csv"
+        if seq_csv.exists():
+            seq_csv.unlink()
+
+        self.user_prompt = user_prompt
         self.record_time_df = []
-        
-        
+
         self.Planner = ChatGoogleGenerativeAI(
             model=planner_model_id,
             include_thoughts=True,
@@ -48,44 +65,38 @@ class AMP_Agents:
             temperature=1.0,
             timeout=60.0,
             thinking_level="medium" if "gemini" in executor_model_id.lower() else None,
-
         )
-        self.builder = StateGraph(PlanState)
 
+        self.builder = StateGraph(PlanState)
         self.builder.add_node("Planning", self.call_planner)
 
         self.base_dir = Path(__file__).resolve().parent
-        
         self.agent_specs = []
         self.agents = ["Planning"]
         agents_dir = self.base_dir / "agents"
         for agent_path in agents_dir.glob("*.json"):
             with agent_path.open("r", encoding="utf-8") as f:
-                self.agent_specs.append(json.load(f))        
+                self.agent_specs.append(json.load(f))
             self.agents.append(self.agent_specs[-1]['name'])
             self.builder.add_node(self.agent_specs[-1]['name'], self.call_executor)
             self.builder.add_edge(self.agent_specs[-1]['name'], "Planning")
         self.builder.add_node("END", self.call_end)
 
-        # set planning_node as the entry point
         self.builder.add_edge(START, "Planning")
         self.builder.add_conditional_edges("Planning", self.plan)
-        
         self.builder.add_edge("END", END)
-
 
         self.graph = self.builder.compile()
         print(self.graph.get_graph().draw_ascii())
 
-
         self.prompt_builder()
         self.reset_log()
-    def get_prompts (self, file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            prompt = f.read()
-        return prompt        
-    def prompt_builder(self):
 
+    def get_prompts(self, file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    def prompt_builder(self):
         self.planner_prompt = self.get_prompts(self.base_dir / "prompts" / "Planner" / "init.txt")
         self.planner_next_prompt = self.get_prompts(self.base_dir / "prompts" / "Planner" / "next.txt")
         self.executor_prompt = self.get_prompts(self.base_dir / "prompts" / "Executor" / "init.txt")
@@ -100,11 +111,13 @@ class AMP_Agents:
                 agent_descriptions += f"{i+1}. {skill['tool']}: {skill['description']}\n  - input: {skill['input']}\n"
             agent_descriptions += "\n\n"
             agent_contexts += f"{spec['name']} \n===================\n" + "\n".join(spec['context']) + "\n\n"
+
         self.planner_prompt = self.planner_prompt.replace("{Agent Description}", agent_descriptions)
         self.planner_prompt = self.planner_prompt.replace("{Agent Context}", agent_contexts)
         self.planner_prompt += f"\n\nUser Instruction: {self.user_prompt}"
+
     def reset_log(self):
-        self.log_dir = self.base_dir / f"logs_{sys.argv[1]}_pro_{self.num_gen}"
+        self.log_dir = self.base_dir / f"logs_{self.run_id}_pro_{self.num_gen}"
         if self.log_dir.is_symlink() or self.log_dir.is_file():
             self.log_dir.unlink(missing_ok=True)
         else:
@@ -113,13 +126,18 @@ class AMP_Agents:
         for agent in self.agents:
             for sub in ("prompt", "thinking", "response"):
                 (self.log_dir / agent / sub).mkdir(parents=True, exist_ok=True)
-    def generate_response (self, agent, prompt, json_structure=False):
-        structure_incorrect = True
-        think_str=""
-        text_str=""
 
-        while structure_incorrect:
-            try:    
+    def generate_response(self, agent, prompt, json_structure=False):
+        """Calls the LLM and (optionally) parses JSON out of the reply.
+        Bounded retries -- a persistently malformed response now raises
+        instead of hanging the process forever."""
+        think_str = ""
+        text_str = ""
+        root = None
+        last_error = None
+
+        for attempt in range(1, MAX_RESPONSE_RETRIES + 1):
+            try:
                 response = agent.invoke(prompt)
 
                 for block in response.content:
@@ -130,17 +148,20 @@ class AMP_Agents:
 
                 if json_structure:
                     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text_str, re.DOTALL)
-
-                    if match:
-                        json_str = match.group(1)
-                    else:
-                        json_str = text_str  # fallback if no code block
+                    json_str = match.group(1) if match else text_str
                     root = json.loads(json_str)
-            except:
-                pass
-            else:
-                structure_incorrect = False
-        return text_str, think_str, root if json_structure else None
+
+                return text_str, think_str, (root if json_structure else None)
+
+            except Exception as e:
+                last_error = e
+                print(f"[generate_response] attempt {attempt}/{MAX_RESPONSE_RETRIES} failed: {e}")
+                time.sleep(min(2 ** attempt, 30))
+
+        raise RuntimeError(
+            f"generate_response failed after {MAX_RESPONSE_RETRIES} attempts. Last error: {last_error}"
+        )
+
     def log_response(self, agent_name, prompt, think_str, response_str):
         plan_num = os.listdir(self.log_dir / agent_name / "prompt")
         with open(self.log_dir / agent_name / "prompt" / f"prompt_{len(plan_num)+1}.txt", "w", encoding="utf-8") as f:
@@ -149,32 +170,32 @@ class AMP_Agents:
             f.write(think_str)
         with open(self.log_dir / agent_name / "response" / f"response_{len(plan_num)+1}.txt", "w", encoding="utf-8") as f:
             f.write(response_str)
+
     def plan(self, state: PlanState, config: RunnableConfig) -> Literal["Generating", "Filtering", "Verifying", "END"]:
         if state['stage'] == "END":
             with open(self.base_dir / "prompts" / "Planner" / "reporting.txt", "r", encoding="utf-8") as f:
                 reporting_prompt = f.read()
             reporting_prompt = reporting_prompt.replace("{user_prompt}", self.user_prompt)
-
             reporting_prompt += f"\n\nUser Instruction: {self.user_prompt}\n\n"
-            df = pd.read_csv(f"/home/raymondlab/Documents/AMP-Agent/output_{sys.argv[1]}_pro_{self.num_gen}/generated_sequences.csv")
-            # columns with "report" in their name, if not empty
-            report_columns = [col for col in df.columns if "report" in col] 
+
+            df = pd.read_csv(self.output_dir / "generated_sequences.csv")
+            report_columns = [col for col in df.columns if "report" in col]
             df = df.dropna(subset=report_columns)
 
             for i, row in df.iterrows():
                 reporting_prompt += f"\n\nFor the generated sequence {row['sequence']}:\n\n"
                 for col in report_columns:
-                    reporting_prompt += f"Here is the {col.split("_")[0]} {col.split("_")[1]} of the generated sequences:\n\n{row[col]}\n" 
+                    parts = col.split("_")
+                    reporting_prompt += f"Here is the {parts[0]} {parts[-1]} of the generated sequences:\n\n{row[col]}\n"
 
             plan_str, think_str, _ = self.generate_response(self.Planner, reporting_prompt, json_structure=False)
             logging_path = self.log_dir / "Final_Report"
-            os.system(f"mkdir -p {logging_path}")
-            os.system(f"mkdir -p {logging_path / 'prompt'}")
-            os.system(f"mkdir -p {logging_path / 'thinking'}")
-            os.system(f"mkdir -p {logging_path / 'response'}")
+            (logging_path / "prompt").mkdir(parents=True, exist_ok=True)
+            (logging_path / "thinking").mkdir(parents=True, exist_ok=True)
+            (logging_path / "response").mkdir(parents=True, exist_ok=True)
             self.log_response("Final_Report", reporting_prompt, think_str, plan_str)
-            
-            final_report_path = f"/home/raymondlab/Documents/AMP-Agent/output_{sys.argv[1]}_pro_{self.num_gen}/" +  f"final_report_{sys.argv[1]}_pro_{self.num_gen}.txt"
+
+            final_report_path = self.output_dir / f"final_report_{self.run_id}_pro_{self.num_gen}.txt"
             with open(final_report_path, "w", encoding="utf-8") as f:
                 f.write(plan_str)
 
@@ -190,9 +211,7 @@ class AMP_Agents:
             prompt = prompt.replace("{Instruction}", state['messages'][-1])
             prompt = prompt.replace("{Agent}", state['stage'])
             prompt = prompt.replace("{Reports}", state['executor'][-1]['report'] if state['executor'] else "")
-
             state['stage'] = "Planning"
-            
         else:
             prompt = self.planner_prompt
 
@@ -200,13 +219,13 @@ class AMP_Agents:
         self.log_response(state['stage'], prompt, think_str, plan_str)
 
         agent = root["Planning"]["Agent"]
-
         state['stage'] = agent
         state['messages'].append(plan_str)
+
         end = time.time()
         self.record_time_df.append({"agent": "Planning", "time": end - start})
-
         return state
+
     def call_executor(self, state: PlanState, config: RunnableConfig) -> PlanState:
         start = time.time()
         agent_description = ""
@@ -222,63 +241,95 @@ class AMP_Agents:
         prompt = prompt.replace("{Agent Description}", agent_description)
         prompt = prompt.replace("{Instruction}", state['messages'][-1])
         tool_prompt = prompt
-        while True:
-            plan_str, think_str, root = self.generate_response(self.Executor, tool_prompt, json_structure=True)
 
+        plan_str, think_str, root, breif_log = None, None, None, ""
+        for attempt in range(1, MAX_EXECUTOR_RETRIES + 1):
+            plan_str, think_str, root = self.generate_response(self.Executor, tool_prompt, json_structure=True)
             self.log_response(state['stage'], tool_prompt, think_str, plan_str)
 
             steps = root["Steps"]
             breif_log = ""
-
             try:
                 for step in steps:
-
                     step_id = step["id"]
                     tool = step["Tool"]
                     input_data = step["Input"]
-
                     output = call_tool(tool, state['stage'], input_data)
                     breif_log += f"Step {step_id}: {output}"
             except Exception as e:
-                tool_prompt = prompt + "\n\n" + f"{tool}: The execution of the plan encountered an error: {str(e)}. Please revise the plan and provide a new execution plan."
-            else:                
+                print(f"[call_executor] tool execution error (attempt {attempt}/{MAX_EXECUTOR_RETRIES}): {e}")
+                tool_prompt = prompt + "\n\n" + (
+                    f"The execution of the plan encountered an error: {str(e)}. "
+                    f"Please revise the plan and provide a new execution plan."
+                )
+                if attempt == MAX_EXECUTOR_RETRIES:
+                    raise RuntimeError(
+                        f"call_executor failed after {MAX_EXECUTOR_RETRIES} attempts for stage "
+                        f"'{state['stage']}'. Last error: {e}"
+                    )
+            else:
                 break
-
-                
-
 
         report_prompt = self.executor_report_prompt.replace("{Agent}", state['stage'])
         report_prompt = report_prompt.replace("{Instruction}", plan_str)
         report_prompt = report_prompt.replace("{Summary}", breif_log)
 
-        text_str, think_str, root = self.generate_response(self.Executor, report_prompt, json_structure=False)
+        text_str, think_str, _ = self.generate_response(self.Executor, report_prompt, json_structure=False)
         self.log_response(state['stage'], report_prompt, think_str, text_str)
 
+        entry = {"agent": state['stage'], "execution_plan": plan_str, "report": text_str, "step_reports": breif_log}
         if state['executor'] is None:
-            state['executor'] = [{"agent": state['stage'], "execution_plan": plan_str, "report": text_str, "step_reports": breif_log}]
-        else: 
-            state['executor'].append({"agent": state['stage'], "execution_plan": plan_str, "report": text_str, "step_reports": breif_log})
+            state['executor'] = [entry]
+        else:
+            state['executor'].append(entry)
         state['from_exec'] = True
+
         end = time.time()
         self.record_time_df.append({"agent": state['stage'], "time": end - start})
-
         return state
-    
 
     def call_end(self, state: PlanState, config: RunnableConfig) -> PlanState:
-        pd.DataFrame(self.record_time_df).to_csv(f"/home/raymondlab/Documents/AMP-Agent/output_{sys.argv[1]}_pro_{self.num_gen}/execution_time.csv", index=False)
+        pd.DataFrame(self.record_time_df).to_csv(self.output_dir / "execution_time.csv", index=False)
         return state
 
     def run(self):
-        result = self.graph.invoke({"stage": "Planning", 
-                                    "executor": None,
-                                    "messages": [],
-                                    "from_exec": False})
+        self.graph.invoke({
+            "stage": "Planning",
+            "executor": None,
+            "messages": [],
+            "from_exec": False,
+        })
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run the PepCraft AMP agent pipeline.")
+    parser.add_argument("--run_id", required=True, help="Label for this run (replaces old sys.argv[1]).")
+    parser.add_argument("--output_base", default="./outputs", help="Base directory for run outputs.")
+    parser.add_argument("--counts", nargs="+", type=int, default=[5, 10, 20],
+                         help="List of target sequence counts to run, one full pipeline pass each.")
+    parser.add_argument("--species", default="ecoli",
+                         choices=["ecoli", "paeruginosa", "kpneumoniae", "saureus", "bsubtilis", "sepidermidis"])
+    parser.add_argument("--planner_model", default="gemini-3.1-pro-preview")
+    parser.add_argument("--executor_model", default="gemini-3.1-flash-lite-preview")
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    #user_prompt = input("Please enter your instruction for the AMP generation task: ")
-    for i in [5, 10 ,20]:
-        user_prompt = f"Design exactly {i} AMP sequences with D-amino acids targeting Ecoli. The target length is 10 - 20. Apply physicochemical filters for cationicity (range: 2 to 8) and hydrophobicity (range: -0.5 to 0.5). The preferred structure is alpha-helix. Use AMPGAN-v3 to generate. The folder path to save is specifically '/home/raymondlab/Documents/AMP-Agent/output_{sys.argv[1]}_pro_{i}/'. Please Cross-reference with the protein database and explain the candidate."
-        agent = AMP_Agents(user_prompt, planner_model_id="gemini-3.1-pro-preview", executor_model_id="gemini-3.1-flash-lite-preview", num_gen=i)
+    args = parse_args()
+    for n in args.counts:
+        user_prompt = (
+            f"Design exactly {n} AMP sequences with D-amino acids targeting {args.species}. "
+            f"The target length is 10 - 20. Apply physicochemical filters for cationicity "
+            f"(range: 2 to 8) and hydrophobicity (range: -0.5 to 0.5). The preferred structure "
+            f"is alpha-helix. Use AMPGAN-v3 to generate. Please cross-reference with the protein "
+            f"database and explain the candidate."
+        )
+        agent = AMP_Agents(
+            user_prompt,
+            run_id=args.run_id,
+            output_base=args.output_base,
+            planner_model_id=args.planner_model,
+            executor_model_id=args.executor_model,
+            num_gen=n,
+        )
         agent.run()
