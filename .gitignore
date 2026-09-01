@@ -10,6 +10,7 @@ wheels/
 # Virtual environments
 .venv
 
-*/logs/
-
+*/logs_*/
+   /outputs/
+   generated_amp_sequences/
 */test/

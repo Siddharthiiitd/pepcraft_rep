@@ -1,4 +1,3 @@
-
 """
 Lightweight stand-in for the real AMPGAN_v3 GAN generator.
 
@@ -24,16 +23,41 @@ import os
 import random
 import pandas as pd
 
-# 20 standard L-amino acids (uppercase). If you need D-amino acid sequences
-# for the Damino_Filter to pass, lowercase letters represent D-amino acids
-# in this pipeline's convention (see Damino_Filter.py / Lamino_Filter.py).
-L_AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
+# 20 standard L-amino acids (uppercase). Lowercase letters represent
+# D-amino acids in this pipeline's convention (see Damino_Filter.py /
+# Lamino_Filter.py).
+CATIONIC = "KR"          # positively charged at pH 7.4 -- drives net charge up
+HYDROPHOBIC = "ALIVFMWY"  # positive Kyte-Doolittle hydropathy -- drives GRAVY up
+NEUTRAL = "GSTCNQHP"       # mildly hydrophilic, near-neutral GRAVY contribution
+NEGATIVE = "DE"           # negatively charged -- drives net charge down
+
+# Weighted so the *expected* composition of a generated sequence lands
+# close to net charge ~+2..+4 and GRAVY ~0 -- i.e. actually inside the
+# ranges Cation_Filter/Hydrophobicity_Filter check, instead of a uniform
+# draw over all 20 residues (which averages out near charge 0 / GRAVY
+# slightly negative and rarely clears the cationicity threshold).
+_WEIGHTED_POOL = (
+    CATIONIC * 6 +
+    HYDROPHOBIC * 5 +
+    NEUTRAL * 2 +
+    NEGATIVE * 1
+)
 
 
 def _random_sequence(min_length: int, max_length: int, use_d_amino: bool = False) -> str:
     length = random.randint(min_length, max_length)
-    seq = "".join(random.choice(L_AMINO_ACIDS) for _ in range(length))
-    return seq.lower() if use_d_amino else seq
+    residues = [random.choice(_WEIGHTED_POOL) for _ in range(length)]
+
+    if use_d_amino:
+        # Partial D-amino substitution (closer to how these are actually
+        # designed) rather than lowercasing the whole sequence -- just
+        # needs >=1 lowercase residue for Damino_Filter to pass.
+        num_d = max(1, round(length * random.uniform(0.15, 0.35)))
+        d_positions = random.sample(range(length), min(num_d, length))
+        for i in d_positions:
+            residues[i] = residues[i].lower()
+
+    return "".join(residues)
 
 
 def AMPGAN_v3(input_data: dict) -> str:
@@ -42,8 +66,9 @@ def AMPGAN_v3(input_data: dict) -> str:
     folder_path = input_data.get("folder_path", None)
     species_of_interest = input_data.get("species_of_interest", "ecoli")
     num_samples = input_data.get("num_generations", 4)
-    # Optional extra flag (not in the original schema, defaults off) so you
-    # can request D-amino sequences straight from the stub if you want them.
+    # Set this True when the user's request calls for D-amino acid
+    # sequences -- the Planner should pass use_d_amino=true in that case
+    # (see generating_agent.json's tool schema).
     use_d_amino = bool(input_data.get("use_d_amino", False))
 
     if not folder_path:

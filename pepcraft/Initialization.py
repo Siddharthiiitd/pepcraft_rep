@@ -57,6 +57,25 @@ def call_tool(tool: str, agent: str, input_data: dict):
     return func(input_data)
 
 
+# Only the 3.x Gemini line supports the `thinking_level` param as of this
+# writing -- 2.5 and earlier models reject it with a 400 INVALID_ARGUMENT.
+# Extend this set as you verify other models support it; don't assume
+# every "gemini*" model does.
+THINKING_LEVEL_SUPPORTED_PREFIXES = ("gemini-3",)
+
+
+def _model_kwargs(model_id: str, thinking_level: str = "medium") -> dict:
+    kwargs = dict(
+        model=model_id,
+        include_thoughts=True,
+        temperature=1.0,
+        timeout=60.0,
+    )
+    if model_id.lower().startswith(THINKING_LEVEL_SUPPORTED_PREFIXES):
+        kwargs["thinking_level"] = thinking_level
+    return kwargs
+
+
 class AMP_Agents:
     def __init__(self, user_prompt: str, run_id: str, output_base: str,
                  planner_model_id="gemini-3.1-pro-preview",
@@ -75,20 +94,8 @@ class AMP_Agents:
         self.user_prompt = user_prompt
         self.record_time_df = []
 
-        self.Planner = ChatGoogleGenerativeAI(
-            model=planner_model_id,
-            include_thoughts=True,
-            temperature=1.0,
-            timeout=60.0,
-            thinking_level="medium" if "gemini" in planner_model_id.lower() else None,
-        )
-        self.Executor = ChatGoogleGenerativeAI(
-            model=executor_model_id,
-            include_thoughts=True,
-            temperature=1.0,
-            timeout=60.0,
-            thinking_level="medium" if "gemini" in executor_model_id.lower() else None,
-        )
+        self.Planner = ChatGoogleGenerativeAI(**_model_kwargs(planner_model_id))
+        self.Executor = ChatGoogleGenerativeAI(**_model_kwargs(executor_model_id))
 
         self.builder = StateGraph(PlanState)
         self.builder.add_node("Planning", self.call_planner)

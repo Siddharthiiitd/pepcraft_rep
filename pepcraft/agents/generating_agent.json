@@ -5,7 +5,7 @@
         {
             "tool": "AMPGAN_v3",
             "description": "A Generative Adversarial Network (GAN)-based Antimicrobial Peptide (AMP) generator. The generated results are saved to folder_path/generated_sequences.csv.",
-            "input": "min_length (int), max_length (int), num_generations (int), species_of_interest (str) {choice: 'ecoli','paeruginosa','kpneumoniae','saureus','bsubtilis','sepidermidis'}, folder_path (path to output folder)"
+            "input": "min_length (int), max_length (int), num_generations (int), species_of_interest (str) {choice: 'ecoli','paeruginosa','kpneumoniae','saureus','bsubtilis','sepidermidis'}, use_d_amino (bool, default false -- set true whenever the user's request asks for D-amino acid / non-canonical peptides, since a Damino_Filter downstream will require it), folder_path (path to output folder)"
         }
     ],
     "context": [
