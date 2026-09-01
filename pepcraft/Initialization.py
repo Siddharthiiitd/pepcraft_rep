@@ -144,6 +144,12 @@ class AMP_Agents:
 
         self.planner_prompt = self.planner_prompt.replace("{Agent Description}", agent_descriptions)
         self.planner_prompt = self.planner_prompt.replace("{Agent Context}", agent_contexts)
+        self.planner_prompt += (
+            f"\n\nCRITICAL: every tool call in this run that takes a `folder_path` input MUST use "
+            f"exactly this literal path, with no variation: {self.output_dir}\n"
+            f"Do not invent, rename, or shorten this path. All agents in this run read and write "
+            f"generated_sequences.csv inside this exact folder."
+        )
         self.planner_prompt += f"\n\nUser Instruction: {self.user_prompt}"
 
     def reset_log(self):
@@ -270,6 +276,10 @@ class AMP_Agents:
         prompt = self.executor_prompt.replace("{Agent}", state['stage'])
         prompt = prompt.replace("{Agent Description}", agent_description)
         prompt = prompt.replace("{Instruction}", state['messages'][-1])
+        prompt += (
+            f"\n\nCRITICAL: every tool call that takes a `folder_path` input MUST use exactly "
+            f"this literal path, with no variation: {self.output_dir}"
+        )
         tool_prompt = prompt
 
         plan_str, think_str, root, breif_log = None, None, None, ""

@@ -11,6 +11,6 @@ wheels/
 .venv
 
 */logs_*/
-   /outputs/
+/outputs/
    generated_amp_sequences/
 */test/

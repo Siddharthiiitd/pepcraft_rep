@@ -111,6 +111,7 @@ def Verify_SwissProt(input_data: dict) -> str:
 
             if all(row[key] == 1 for key in filter_columns):
                 sequence = row["sequence"].upper()
+                print(f"[Verify_SwissProt] querying NCBI for sequence {index+1}: {sequence} (this can take 30s-2min)...")
                 current_row_text += f"{sequence}\n"
 
                 hit_info = _remote_blast_against_swissprot(sequence)
