@@ -5,11 +5,21 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _local_match_utils import find_best_match
 
-# Point this at your locally downloaded SwissProt CSV. Get it from UniProt's
-# bulk download / REST API, e.g. (verify the exact current URL on
-# uniprot.org -- I can't confirm live):
+# NOVELTY CHECK -- this must point at FULL SwissProt (all ~570k reviewed
+# proteins of every function), NOT an antibacterial-filtered subset.
+#
+# The question this tool answers is "does this peptide resemble ANY known
+# protein?". If you point it at an AMP-only subset, it instead answers
+# "does this resemble a known AMP?" -- which is what Verify_DBAASP already
+# tells you, so you'd get the same evidence twice and no novelty signal.
+#
+# Get it from UniProt (verify the exact current URL on uniprot.org -- I
+# can't confirm it live):
 #   https://rest.uniprot.org/uniprotkb/stream?query=reviewed:true&format=tsv&fields=accession,id,protein_name,organism_name,sequence
-# then convert/save as CSV with at least an "accession" and "sequence" column.
+# Save as CSV with at least "accession" and "sequence" columns.
+#
+# First run builds a k-mer index (~5 min at full-SwissProt scale) and caches
+# it to disk next to the CSV; later runs load it in about a minute.
 SWISSPROT_CSV_PATH = os.environ.get(
     "SWISSPROT_CSV_PATH",
     os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "swissprot.csv"),
@@ -42,11 +52,15 @@ def Verify_SwissProt(input_data: dict) -> str:
                 match = find_best_match(sequence, SWISSPROT_CSV_PATH, sequence_col="sequence", id_col="accession")
 
                 if match is None:
-                    entry_text = f"{sequence}\n[1] No local matches found.\n"
+                    entry_text = (f"{sequence}\n[1] NOVEL -- no similar protein found anywhere "
+                                  f"in SwissProt.\n")
                 else:
+                    caveat = (" (LOW COVERAGE -- only a short sub-region aligned, "
+                              "treat this hit as weak evidence)" if match.get("low_coverage") else "")
                     entry_text = (
-                        f"{sequence}\n[1] Closest local SwissProt hit: {match['name']} | "
-                        f"Identity: {match['identity_pct']}% | alignment score: {match['alignment_score']}\n"
+                        f"{sequence}\n[1] Closest SwissProt protein: {match['name']} | "
+                        f"Identity: {match['identity_pct']}% | Query coverage: {match['coverage_pct']}%"
+                        f" | alignment score: {match['alignment_score']}{caveat}\n"
                     )
 
                 swissprot_report.append(entry_text)

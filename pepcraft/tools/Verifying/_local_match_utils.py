@@ -1,105 +1,139 @@
 """
-Lightweight, pure-Python local sequence search -- no BLAST+ install needed.
+Lightweight local sequence search -- no BLAST+ binary required.
 
-Used by both Verify_SwissProt.py and Verify_DBAASP.py to search a locally
-downloaded CSV of known sequences (SwissProt or DBAASP) for the closest
-match to a query peptide.
+Supports two distinct uses in this pipeline:
 
-How it works (two-stage, mimics what BLAST does internally at a much
-smaller scale):
-  1. K-MER PREFILTER -- build an index once (cached in memory) mapping each
-     short substring ("k-mer") to which rows contain it. For a query, count
-     shared k-mers against every row almost instantly (set operations), and
-     keep only the top N candidates. This avoids running a slow alignment
-     against every single row in a large database.
-  2. LOCAL ALIGNMENT REFINE -- only the top N candidates from step 1 get a
-     real Biopython local alignment (Smith-Waterman-style), from which we
-     compute a genuine %identity score.
+  1. NOVELTY CHECK (full SwissProt, ~570k proteins of every function)
+     "Does this peptide resemble ANY known protein?"
+  2. AMP SIMILARITY CHECK (DBAASP, ~1.8k antimicrobial peptides)
+     "Does this peptide resemble a known antimicrobial peptide?"
 
-This is NOT as fast or as rigorous as real BLAST, but for a database in the
-thousands-to-hundreds-of-thousands-of-rows range and short query peptides
-(10-20 residues), it's tractable on CPU with no external binary.
+These answer different questions and should use different databases.
+Searching an AMP-only subset of SwissProt collapses (1) into (2) and gives
+you two copies of the same evidence.
+
+Design notes for large databases:
+  - K=5 k-mers (3.2M possible) rather than K=4 (160k). At 570k proteins a
+    4-mer index stops discriminating -- nearly every protein shares 4-mers
+    with any query.
+  - k-mer hit counts are LENGTH-NORMALIZED so long proteins don't win the
+    prefilter purely by being long.
+  - The built index is CACHED TO DISK (pickle) next to the CSV, so the
+    expensive build happens once ever, not once per pipeline run.
+  - Alignments report query COVERAGE alongside %identity. On short peptides
+    a local (Smith-Waterman) alignment can report 100% identity from a tiny
+    perfectly-matching sub-region, which is misleading on its own.
 """
 import os
+import pickle
+import hashlib
 import pandas as pd
 from Bio.Align import PairwiseAligner, substitution_matrices
 
-# Cache: csv_path -> {"rows": [...], "kmer_index": {...}}
-# Built once per process, reused across every query in a run.
 _INDEX_CACHE = {}
 
-K = 4  # k-mer length for the prefilter stage
-TOP_N_CANDIDATES = 25  # how many k-mer-similar rows get a real alignment
+# K is per-database, not global: a large protein database needs longer
+# k-mers to discriminate, while a small database of SHORT peptides needs
+# short k-mers or nothing matches at all.
+DEFAULT_K = 5          # full SwissProt (~570k proteins) -- novelty check
+SMALL_DB_K = 4         # DBAASP / AMP sets (~2k short peptides)
+SMALL_DB_THRESHOLD = 50000   # rows below this are treated as a "small db"
+TOP_N_CANDIDATES = 50
+MIN_COVERAGE_PCT = 50.0  # alignments covering less of the query than this are reported but flagged
 
 
-def _build_kmer_index(sequences):
+def _cache_path(csv_path, k):
+    h = hashlib.md5(os.path.abspath(csv_path).encode()).hexdigest()[:8]
+    return os.path.join(os.path.dirname(os.path.abspath(csv_path)), f".kmer_index_{h}_k{k}.pkl")
+
+
+def _build_kmer_index(sequences, K):
     index = {}
     for row_idx, seq in enumerate(sequences):
         seq = seq.upper()
-        seen = set()
-        for i in range(len(seq) - K + 1):
-            kmer = seq[i:i + K]
-            if kmer in seen:
-                continue
-            seen.add(kmer)
+        for kmer in {seq[i:i + K] for i in range(len(seq) - K + 1)}:
             index.setdefault(kmer, []).append(row_idx)
     return index
 
 
 def load_local_database(csv_path: str, sequence_col: str = "sequence", id_col: str = None):
-    """Loads (and caches) a local CSV database + its k-mer index.
-    id_col: which column to treat as the display name/accession -- if None,
-    uses the row index."""
     if csv_path in _INDEX_CACHE:
         return _INDEX_CACHE[csv_path]
 
     if not os.path.exists(csv_path):
         raise FileNotFoundError(
             f"Local database CSV not found: {csv_path}\n"
-            f"Download it first and point the relevant env var at this path."
+            f"Download it and/or point the relevant env var at the right path."
         )
 
     df = pd.read_csv(csv_path)
     if sequence_col not in df.columns:
-        raise ValueError(
-            f"Expected a '{sequence_col}' column in {csv_path}, found: {list(df.columns)}"
-        )
+        raise ValueError(f"Expected a '{sequence_col}' column in {csv_path}, found: {list(df.columns)}")
 
     df = df.dropna(subset=[sequence_col]).reset_index(drop=True)
     sequences = df[sequence_col].astype(str).tolist()
+    lengths = [len(s) for s in sequences]
 
-    print(f"[local_match] Building k-mer index for {csv_path} ({len(sequences)} rows) -- one-time cost for this run...")
-    kmer_index = _build_kmer_index(sequences)
+    K = SMALL_DB_K if len(sequences) < SMALL_DB_THRESHOLD else DEFAULT_K
 
-    entry = {"df": df, "sequences": sequences, "kmer_index": kmer_index, "id_col": id_col}
+    cache_file = _cache_path(csv_path, K)
+    csv_mtime = os.path.getmtime(csv_path)
+    kmer_index = None
+
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "rb") as f:
+                cached = pickle.load(f)
+            if cached.get("mtime") == csv_mtime and cached.get("k") == K and cached.get("n") == len(sequences):
+                kmer_index = cached["index"]
+                print(f"[local_match] Loaded cached k-mer index for {os.path.basename(csv_path)} ({len(sequences)} rows).")
+        except Exception:
+            kmer_index = None
+
+    if kmer_index is None:
+        print(f"[local_match] Building k-mer index for {os.path.basename(csv_path)} "
+              f"({len(sequences)} rows) -- ONE-TIME cost, cached to disk afterwards...")
+        kmer_index = _build_kmer_index(sequences, K)
+        try:
+            with open(cache_file, "wb") as f:
+                pickle.dump({"mtime": csv_mtime, "k": K, "n": len(sequences), "index": kmer_index}, f,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+            print(f"[local_match] Index cached to {os.path.basename(cache_file)} -- future runs load instantly.")
+        except Exception as e:
+            print(f"[local_match] (could not write index cache: {e})")
+
+    entry = {"df": df, "sequences": sequences, "lengths": lengths,
+             "kmer_index": kmer_index, "id_col": id_col, "k": K}
     _INDEX_CACHE[csv_path] = entry
     return entry
 
 
-def _prefilter_candidates(query: str, kmer_index: dict, num_sequences: int, top_n: int):
+def _prefilter_candidates(query, kmer_index, lengths, top_n, K):
     query = query.upper()
-    scores = {}
-    for i in range(len(query) - K + 1):
-        kmer = query[i:i + K]
+    counts = {}
+    for kmer in {query[i:i + K] for i in range(len(query) - K + 1)}:
         for row_idx in kmer_index.get(kmer, []):
-            scores[row_idx] = scores.get(row_idx, 0) + 1
+            counts[row_idx] = counts.get(row_idx, 0) + 1
 
-    if not scores:
+    if not counts:
         return []
 
-    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
-    return [row_idx for row_idx, _ in ranked[:top_n]]
+    # Length-normalize: a 600aa protein shouldn't outrank a real homolog
+    # just because its size makes incidental k-mer collisions likely.
+    scored = [(idx, hits / (lengths[idx] ** 0.5)) for idx, hits in counts.items()]
+    scored.sort(key=lambda kv: kv[1], reverse=True)
+    return [idx for idx, _ in scored[:top_n]]
 
 
 def find_best_match(query_sequence: str, csv_path: str, sequence_col: str = "sequence", id_col: str = None):
-    """Returns the single best local-alignment match for query_sequence
-    against the CSV database at csv_path, or None if the database is empty
-    or nothing shares any k-mer with the query at all."""
+    """Best local-alignment match for query_sequence in the CSV database.
+    Returns dict with name, identity_pct, coverage_pct, alignment_score,
+    matched_sequence, row -- or None if nothing shares any k-mer."""
     db = load_local_database(csv_path, sequence_col=sequence_col, id_col=id_col)
     query = query_sequence.upper()
 
-    candidate_indices = _prefilter_candidates(query, db["kmer_index"], len(db["sequences"]), TOP_N_CANDIDATES)
-    if not candidate_indices:
+    candidates = _prefilter_candidates(query, db["kmer_index"], db["lengths"], TOP_N_CANDIDATES, db["k"])
+    if not candidates:
         return None
 
     aligner = PairwiseAligner()
@@ -109,7 +143,7 @@ def find_best_match(query_sequence: str, csv_path: str, sequence_col: str = "seq
     aligner.extend_gap_score = -0.5
 
     best = None
-    for row_idx in candidate_indices:
+    for row_idx in candidates:
         target = db["sequences"][row_idx].upper()
         try:
             alignment = aligner.align(query, target)[0]
@@ -118,21 +152,24 @@ def find_best_match(query_sequence: str, csv_path: str, sequence_col: str = "seq
 
         aligned_query, aligned_target = str(alignment[0]), str(alignment[1])
         matches = sum(1 for a, b in zip(aligned_query, aligned_target) if a == b and a != "-")
-        aligned_len = max(len(aligned_query), 1)
-        identity_pct = round((matches / aligned_len) * 100, 2)
+        aligned_len = max(len(aligned_query.replace("-", "")), 1)
+        identity_pct = round((matches / max(len(aligned_query), 1)) * 100, 2)
+        coverage_pct = round((aligned_len / max(len(query), 1)) * 100, 2)
 
-        if best is None or alignment.score > best["_raw_score"]:
+        if best is None or alignment.score > best["_raw"]:
             row = db["df"].iloc[row_idx]
             name = row[db["id_col"]] if db["id_col"] and db["id_col"] in row else f"row_{row_idx}"
             best = {
                 "name": str(name),
                 "identity_pct": identity_pct,
+                "coverage_pct": coverage_pct,
+                "low_coverage": coverage_pct < MIN_COVERAGE_PCT,
                 "alignment_score": alignment.score,
                 "matched_sequence": target,
                 "row": row.to_dict(),
-                "_raw_score": alignment.score,
+                "_raw": alignment.score,
             }
 
     if best:
-        best.pop("_raw_score", None)
+        best.pop("_raw", None)
     return best
