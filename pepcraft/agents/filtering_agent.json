@@ -1,6 +1,6 @@
 {
     "name": "Filtering",
-    "description": "Responsible for high-precision quality control and selection of Antimicrobial Peptides (AMPs). This agent evaluates physical and chemical properties to refine a raw sequence pool into a curated list of high-potential lead candidates.",
+    "description": "Responsible for high-precision quality control and selection of Antimicrobial Peptides (AMPs). This agent evaluates physical, chemical, and structural properties to refine a raw sequence pool into a curated list of high-potential lead candidates.",
     "tools": [
         {
             "tool": "Cation_Filter",
@@ -28,6 +28,11 @@
             "input": "folder_path (path to output folder)"
         },
         {
+            "tool": "Structure_Filter",
+            "description": "Classifies each sequence's predicted secondary structure (from the 'predicted_structure_path' column, produced by the Generating agent's Predict_Structure tool) into one of 6 classes via DSSP, and optionally filters by desired class(es). Requires Predict_Structure to have already been run on these sequences.",
+            "input": "structure (str, optional -- semicolon-separated class numbers to filter for, e.g. '2' for Alpha-Helical; omit to just classify without filtering), folder_path (path to output folder)"
+        },
+        {
             "tool": "Filter_Status",
             "description": "Mandatory Reporting Tool. USE THIS TOOL WHENEVER you call any filtering tool to report the current status of the pipeline or verify the count of sequences. It provides the final integer count of surviving candidates. This tool is essential for monitoring the attrition rate and ensuring data integrity throughout the filtering process.",
             "input": "folder_path (path to output folder)"
@@ -35,8 +40,8 @@
     ],
     "context": [
         "This filtering process serves as the final quality control checkpoint for evaluating generated sequences.",
-        "Operational Priority: Execute fundamental property checks (such as charge, hydrophobicity, and length) as the screens for this pipeline.",
-        "Note: this deployment does not perform 3D structure prediction or structural classification -- do not request or expect a structure-based filter here. Structural preference should not be part of the filtering criteria.",
+        "Operational Priority: Execute fundamental property checks (such as charge, hydrophobicity, and length) before Structure_Filter, since Structure_Filter depends on the Generating agent having already run Predict_Structure on the surviving candidates.",
+        "Structure classes (via DSSP): 1=Mixed Alpha/Beta, 2=Alpha-Helical, 3=Beta-Hairpin/Turn-Rich Beta, 4=Extended Beta-Strand, 5=Structured Turns/Bends, 6=Unstructured/Random Coil.",
         "Verification Rule: Every filtering cycle must conclude by invoking the status reporting tool to verify data integrity and output the official count of surviving candidates."
     ]
 }

@@ -6,12 +6,17 @@
             "tool": "AMPGAN_v3",
             "description": "A Generative Adversarial Network (GAN)-based Antimicrobial Peptide (AMP) generator. The generated results are saved to folder_path/generated_sequences.csv.",
             "input": "min_length (int), max_length (int), num_generations (int), species_of_interest (str) {choice: 'ecoli','paeruginosa','kpneumoniae','saureus','bsubtilis','sepidermidis'}, use_d_amino (bool, default false -- set true whenever the user's request asks for D-amino acid / non-canonical peptides, since a Damino_Filter downstream will require it), folder_path (path to output folder)"
+        },
+        {
+            "tool": "Predict_Structure",
+            "description": "Predicts the 3D structure of sequences that have passed all filters, using ESMFold (CPU-compatible, no MSA search required). Results (PDB file paths) are saved to the 'predicted_structure_path' column. This can be slow on CPU -- run only on filtered candidates, not the full generated pool.",
+            "input": "folder_path (path to output folder)"
         }
     ],
     "context": [
         "The Generating Agent translates natural language constraints from the user into structured, machine-readable inputs specifically formatted for the agent's designated toolset.",
         "The Planning Agent provides natural language instructions for the desired tools, which the Generating Agent then parses and transforms into actionable, structured inputs.",
         "First pass: generate exactly the user's requested count (N) and let filters run. After observing the pass rate p on this batch, compute the shortfall S = N \u2212 (candidates passed). For subsequent rounds, generate \u2308S / p\u2309 candidates to cover the shortfall in one additional round. Cap any single generation call at 3N to bound cost. Stop generating once the cumulative passed count reaches N.",
-        "Note: this deployment does not perform 3D structure prediction -- there is no structure-prediction tool available in this agent."
+        "Predict_Structure should only be called on sequences that have already passed all physicochemical filters (cationicity, hydrophobicity, length, D-amino), never on the full unfiltered pool -- structure prediction is comparatively expensive per sequence on CPU."
     ]
 }

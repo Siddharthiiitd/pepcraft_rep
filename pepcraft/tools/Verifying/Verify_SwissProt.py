@@ -1,91 +1,19 @@
 import os
-import time
+import sys
 import pandas as pd
-from Bio.Blast import NCBIWWW, NCBIXML
-from Bio import Entrez, SeqIO
 
-# NCBI requires an email for both Entrez and remote BLAST usage.
-# Set this to YOUR OWN address -- the original repo hardcoded the paper
-# authors' email, which you should not keep using.
-#   export NCBI_EMAIL="you@example.com"
-NCBI_EMAIL = os.environ.get("NCBI_EMAIL")
-if not NCBI_EMAIL:
-    raise RuntimeError("Set NCBI_EMAIL to your own email address before running -- NCBI requires it.")
-Entrez.email = NCBI_EMAIL
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _local_match_utils import find_best_match
 
-# Simple in-memory cache so re-querying the same sequence within one run
-# (e.g. across retries) doesn't hit NCBI's rate limits twice.
-_SWISSPROT_CACHE = {}
-
-
-def get_taxonomy_and_functional_text(accession_id):
-    try:
-        handle = Entrez.efetch(db="protein", id=accession_id, rettype="gb", retmode="text")
-        record = SeqIO.read(handle, "genbank")
-        handle.close()
-
-        taxonomy = record.annotations.get("taxonomy", [])
-        description = record.description
-
-        products = []
-        for feature in record.features:
-            if "product" in feature.qualifiers:
-                products.extend(feature.qualifiers["product"])
-        products = list(set(products))
-
-        taxonomy_str = "--- Taxonomy & Functional Info ---"
-        taxonomy_str += f"\nTaxonomy: {' -> '.join(taxonomy)}"
-        taxonomy_str += f"\nDescription: {description}"
-        taxonomy_str += f"\nProducts: {', '.join(products)}"
-        return taxonomy_str
-    except Exception:
-        return "No data available due to error."
-
-
-def _remote_blast_against_swissprot(sequence, max_retries=3):
-    """Runs a single sequence through NCBI's remote BLAST server against
-    the swissprot database. No local db/index required."""
-    if sequence in _SWISSPROT_CACHE:
-        return _SWISSPROT_CACHE[sequence]
-
-    for attempt in range(1, max_retries + 1):
-        try:
-            result_handle = NCBIWWW.qblast(
-                program="blastp",
-                database="swissprot",
-                sequence=sequence,
-                hitlist_size=5,
-                expect=10.0,
-            )
-            blast_record = NCBIXML.read(result_handle)
-            result_handle.close()
-
-            if not blast_record.alignments:
-                _SWISSPROT_CACHE[sequence] = None
-                return None
-
-            top_alignment = blast_record.alignments[0]
-            top_hsp = top_alignment.hsps[0]
-            identity_pct = (top_hsp.identities / top_hsp.align_length) * 100
-
-            hit_info = {
-                "title": top_alignment.title,
-                "accession": top_alignment.accession,
-                "length": top_alignment.length,
-                "e_value": top_hsp.expect,
-                "identity_pct": round(identity_pct, 2),
-                "alignment_query": top_hsp.query,
-                "alignment_match": top_hsp.match,
-                "alignment_subject": top_hsp.sbjct,
-            }
-            _SWISSPROT_CACHE[sequence] = hit_info
-            return hit_info
-
-        except Exception as e:
-            print(f"[Verify_SwissProt] remote BLAST attempt {attempt}/{max_retries} failed: {e}")
-            time.sleep(5 * attempt)
-
-    return None
+# Point this at your locally downloaded SwissProt CSV. Get it from UniProt's
+# bulk download / REST API, e.g. (verify the exact current URL on
+# uniprot.org -- I can't confirm live):
+#   https://rest.uniprot.org/uniprotkb/stream?query=reviewed:true&format=tsv&fields=accession,id,protein_name,organism_name,sequence
+# then convert/save as CSV with at least an "accession" and "sequence" column.
+SWISSPROT_CSV_PATH = os.environ.get(
+    "SWISSPROT_CSV_PATH",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "swissprot.csv"),
+)
 
 
 def Verify_SwissProt(input_data: dict) -> str:
@@ -98,12 +26,10 @@ def Verify_SwissProt(input_data: dict) -> str:
     df = pd.read_csv(csv_path)
     filter_columns = [col for col in df.columns if "filter" in col]
 
-    BLAST_results = ""
+    results_text = ""
     swissprot_report = []
 
     for index, row in df.iterrows():
-        current_row_text = ""
-
         try:
             if 'swissprot_report' in df.columns and row.get('swissprot_report') and row['swissprot_report'] != "new":
                 swissprot_report.append(row['swissprot_report'])
@@ -111,33 +37,27 @@ def Verify_SwissProt(input_data: dict) -> str:
 
             if all(row[key] == 1 for key in filter_columns):
                 sequence = row["sequence"].upper()
-                print(f"[Verify_SwissProt] querying NCBI for sequence {index+1}: {sequence} (this can take 30s-2min)...")
-                current_row_text += f"{sequence}\n"
+                print(f"[Verify_SwissProt] local search for sequence {index+1}: {sequence}...")
 
-                hit_info = _remote_blast_against_swissprot(sequence)
+                match = find_best_match(sequence, SWISSPROT_CSV_PATH, sequence_col="sequence", id_col="accession")
 
-                if hit_info is None:
-                    current_row_text += "[1] No matches found.\n"
+                if match is None:
+                    entry_text = f"{sequence}\n[1] No local matches found.\n"
                 else:
-                    current_row_text += (
-                        f"[1] Top Hit: {hit_info['accession']} | "
-                        f"Identity: {hit_info['identity_pct']}% | e_value: {hit_info['e_value']}\n"
+                    entry_text = (
+                        f"{sequence}\n[1] Closest local SwissProt hit: {match['name']} | "
+                        f"Identity: {match['identity_pct']}% | alignment score: {match['alignment_score']}\n"
                     )
-                    taxonomy_info = get_taxonomy_and_functional_text(hit_info['accession'])
-                    current_row_text += f"\n{taxonomy_info}\n\n"
 
-                swissprot_report.append(current_row_text)
-                BLAST_results += current_row_text
-
-                # be polite to NCBI's shared servers between queries
-                time.sleep(2)
+                swissprot_report.append(entry_text)
+                results_text += entry_text
             else:
                 swissprot_report.append("")  # didn't pass filters
 
         except Exception as e:
-            error_msg = f"No hits or error during BLAST search: {e}\n"
+            error_msg = f"Error during local SwissProt search: {e}\n"
             swissprot_report.append(error_msg)
-            BLAST_results += error_msg
+            results_text += error_msg
 
     if len(swissprot_report) == 0:
         return "No sequences passed all filters."
@@ -152,8 +72,8 @@ def Verify_SwissProt(input_data: dict) -> str:
             check = df[col].apply(lambda x: True if (x is not None) and (x != "") and (x != "new") else False)
         if check.sum() == len(check):
             reported_done.append([col, len(check)])
-    BLAST_results += "Completed Verification :"
+    results_text += "Completed Verification :"
     for col in reported_done:
-        BLAST_results += f" {col[0]} ({col[1]} sequences completed),"
+        results_text += f" {col[0]} ({col[1]} sequences completed),"
 
-    return BLAST_results
+    return results_text

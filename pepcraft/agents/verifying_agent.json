@@ -1,16 +1,21 @@
 {
     "name": "Verifying",
-    "description": "Responsible for validating and assessing the novelty of generated peptide sequences by performing homology searches against established biological databases and retrieving relevant annotations.",
+    "description": "Responsible for validating and assessing the novelty of generated peptide sequences by searching them against local copies of established biological databases and retrieving relevant annotations.",
     "tools": [
         {
             "tool": "Verify_SwissProt",
-            "description": "Conducts a remote BLAST sequence alignment (via NCBI's BLAST server) against the SwissProt database. It retrieves the most homologous sequences, extracts their taxonomic classifications, and pulls cross-referenced database annotations.",
+            "description": "Searches a locally downloaded copy of the SwissProt database (no internet call, no BLAST+ binary required) for the closest matching known protein, reporting %identity via local alignment.",
+            "input": "folder_path (path to output folder)"
+        },
+        {
+            "tool": "Verify_DBAASP",
+            "description": "Searches a locally downloaded copy of the DBAASP database (no internet call, no BLAST+ binary required) for the closest matching known antimicrobial peptide, reporting %identity via local alignment. A sequence with no close match is reported as novel.",
             "input": "folder_path (path to output folder)"
         }
     ],
     "context": [
         "This verification module evaluates the output produced by the generation module, translating natural language validation requests from the planning phase into structured database queries.",
-        "This deployment currently only checks generated sequences against SwissProt. DBAASP-based verification is temporarily disabled pending an API key -- do not request or expect a DBAASP cross-reference.",
+        "Both verification tools search local CSV copies of their respective databases -- no internet access or external API key is used at query time.",
         "This verification step should be executed as the final stage in the pipeline."
     ]
 }

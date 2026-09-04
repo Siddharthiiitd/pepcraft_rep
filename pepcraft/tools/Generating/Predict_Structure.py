@@ -1,96 +1,108 @@
 import os
+import time
 import pandas as pd
-import json
-import datetime
-from Bio.PDB import PDBParser, PDBIO
-from Bio.PDB.MMCIFParser import MMCIFParser
+import torch
 
-def convert_cif_to_pdb(cif_path):
-    # 1. Convert CIF to PDB
-    parser_cif = MMCIFParser(QUIET=True)
-    structure = parser_cif.get_structure("peptide", cif_path)
+# ESMFold via HuggingFace transformers -- chosen over AlphaFold because it
+# needs no MSA/database search step, making it the only one of the two
+# that's realistically self-contained on CPU-only hardware. It will still
+# be SLOW on CPU (this is a large model) -- test timing on one short
+# peptide before running a full batch.
+#
+# First run will download the model weights (multi-GB) from HuggingFace --
+# make sure you have space and a working internet connection for that
+# one-time download; afterward it's cached locally.
+_MODEL = None
+_TOKENIZER = None
 
-    pdb_path = cif_path.replace(".cif", ".pdb")
-    io = PDBIO()
-    io.set_structure(structure)
-    io.save(pdb_path)
 
-    with open(pdb_path, 'r') as f:
-        lines = f.readlines()
+def _load_model():
+    global _MODEL, _TOKENIZER
+    if _MODEL is not None:
+        return _MODEL, _TOKENIZER
 
-    dummy_cryst = "CRYST1    1.000    1.000    1.000  90.00  90.00  90.00 P 1           1          \n"
+    from transformers import AutoTokenizer, EsmForProteinFolding
 
-    if not lines[0].startswith("CRYST1"):
-        with open(pdb_path, 'w') as f:
-            f.write(dummy_cryst)
-            f.writelines(lines)
-    return pdb_path
+    print("[Predict_Structure] Loading ESMFold (facebook/esmfold_v1) -- "
+          "first run downloads multi-GB weights, this can take a while...")
+    _TOKENIZER = AutoTokenizer.from_pretrained("facebook/esmfold_v1")
+    _MODEL = EsmForProteinFolding.from_pretrained("facebook/esmfold_v1", low_cpu_mem_usage=True)
+    _MODEL = _MODEL.float()  # CPU inference: stick to float32, not half precision
+    _MODEL.eval()
+    return _MODEL, _TOKENIZER
+
+
+def _predict_pdb(sequence: str) -> str:
+    """Runs ESMFold on a single sequence, returns PDB-format text."""
+    model, _ = _load_model()
+    with torch.no_grad():
+        # transformers' ESMFold wrapper provides this convenience method
+        # that returns ready-to-use PDB text directly -- no separate
+        # CIF-to-PDB conversion step needed (unlike the old simplefold path).
+        pdb_text = model.infer_pdb(sequence)
+    return pdb_text
+
 
 def Predict_Structure(input_data: dict) -> str:
-    # predict structure using simple-fold, for demonstration.
-
     folder_path = input_data.get("folder_path", None)
-    structure_path = input_data.get("structure_path", None)
+    if not folder_path:
+        raise ValueError("folder_path is required in input_data")
 
     csv_path = os.path.join(folder_path, "generated_sequences.csv")
-
     df = pd.read_csv(csv_path)
-    # remove structure_filter columns
-    df = df.drop(columns=[col for col in df.columns if "structure_filter" in col])
-    keys = []
-    for key in df.keys():
-        if "filter" in key:
-            keys.append(key)
 
-    os.system("mkdir "+os.path.join(folder_path, "fasta_input"))
+    if "structure_filter" in df.columns:
+        df = df.drop(columns=["structure_filter"])
 
-    if structure_path is None or not os.path.exists(structure_path):
-        structure_path = os.path.join(folder_path, f"structure_output")
-        os.system(f"mkdir {structure_path}")
-    sequences = []
-    pdb_path = []
-    fasta_path = []
+    filter_keys = [key for key in df.columns if "filter" in key]
+
+    structure_dir = os.path.join(folder_path, "structure_output")
+    os.makedirs(structure_dir, exist_ok=True)
+    fasta_dir = os.path.join(folder_path, "fasta_input")
+    os.makedirs(fasta_dir, exist_ok=True)
+
+    pdb_paths = []
+    fasta_paths = []
+    num_predicted = 0
+
     for index, row in df.iterrows():
-        if all(row[key] == 1 for key in keys) and ("predicted_structure_path" not in df.columns or ".pdb" not in str(row["predicted_structure_path"])):
-            seq = row["sequence"]
-            seq = seq.upper()
-            sequences.append(seq)
-            now_time = f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        already_done = (
+            "predicted_structure_path" in df.columns
+            and ".pdb" in str(row.get("predicted_structure_path", ""))
+        )
+        if already_done:
+            pdb_paths.append(str(row["predicted_structure_path"]))
+            fasta_paths.append(str(row.get("fasta_path", "")))
+            continue
 
-            input_fasta_path = os.path.join(folder_path, "fasta_input", f"generated_{now_time}.fasta")
-            
-            with open(input_fasta_path, "w") as f:
-                f.write(f">generated_{now_time}\n")
-                f.write(seq + "\n") 
-            os.system(f"rm -r {structure_path}/records")
-            os.system(f"rm -r {structure_path}/structures")
-            os.system(f"rm -r {structure_path}/manifest.json")
+        if not all(row[key] == 1 for key in filter_keys):
+            pdb_paths.append("")
+            fasta_paths.append("")
+            continue
 
-            script = f"simplefold \
-                      --simplefold_model simplefold_360M \
-                      --num_steps 500 --tau 0.01 \
-                      --nsample_per_protein 1 \
-                      --fasta_path {input_fasta_path} \
-                        --output_dir {structure_path} \
-                        --backend torch"
-            os.system(script)
-            
-            fasta_path.append(input_fasta_path)
-            
-            pdb_path.append(convert_cif_to_pdb(os.path.join(structure_path, f"predictions_simplefold_360M", f"generated_{now_time}_sampled_0.cif")))
-        elif "predicted_structure_path" in df.columns and ".pdb" in str(row["predicted_structure_path"]):
-            pdb_path.append(str(row["predicted_structure_path"]))
-            fasta_path.append(row["fasta_path"])
-        else:
-            pdb_path.append("")
-            fasta_path.append("")
+        sequence = row["sequence"].upper()
+        print(f"[Predict_Structure] folding sequence {index+1}: {sequence} "
+              f"(CPU inference -- can be slow, please wait)...")
 
-    df['predicted_structure_path'] = pdb_path
-    df['fasta_path'] = fasta_path
+        start = time.time()
+        pdb_text = _predict_pdb(sequence)
+        elapsed = time.time() - start
+        print(f"[Predict_Structure] done in {elapsed:.1f}s")
+
+        fasta_path = os.path.join(fasta_dir, f"seq_{index}.fasta")
+        with open(fasta_path, "w") as f:
+            f.write(f">seq_{index}\n{sequence}\n")
+
+        pdb_path = os.path.join(structure_dir, f"seq_{index}.pdb")
+        with open(pdb_path, "w") as f:
+            f.write(pdb_text)
+
+        pdb_paths.append(pdb_path)
+        fasta_paths.append(fasta_path)
+        num_predicted += 1
+
+    df["predicted_structure_path"] = pdb_paths
+    df["fasta_path"] = fasta_paths
     df.to_csv(csv_path, index=False)
 
-    return f"Structure prediction completed for {len(sequences)} sequences. The predicted structures are saved in {structure_path}."        
-# if __name__ == "__main__":
-
-#     result = Predict_Structure({"folder_path": "/home/raymondlab/Documents/AMP-Agent/output/"})
-#     print(result)
+    return f"Structure prediction completed for {num_predicted} sequences. Predicted structures saved in {structure_dir}."

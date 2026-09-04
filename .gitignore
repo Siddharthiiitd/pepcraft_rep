@@ -14,3 +14,4 @@ wheels/
 /outputs/
    generated_amp_sequences/
 */test/
+.kmer_index_*.pkl
