@@ -47,6 +47,13 @@ if "GOOGLE_API_KEY" not in os.environ:
         "before launching."
     )
 
+# Hard cap on how many times the Planner may route to an agent before the
+# run is forced to finish. Without this the graph can loop
+# Planning -> Generating -> Filtering -> Planning forever, chasing a target
+# candidate count that a low filter pass rate may never reach -- which is
+# why runs previously had to be killed with Ctrl+C.
+MAX_PLANNING_STEPS = 12
+
 MAX_RESPONSE_RETRIES = 5   # cap on malformed-JSON retries for a single LLM call
 MAX_EXECUTOR_RETRIES = 5   # cap on tool-execution-error retries per plan step
 
@@ -85,7 +92,11 @@ class AMP_Agents:
         self.run_id = run_id
 
         # Portable output dir -- no hardcoded /home/raymondlab path.
-        self.output_dir = Path(output_base) / f"output_{self.run_id}_pro_{self.num_gen}"
+        # Resolve to an ABSOLUTE path. With a relative path the LLM would
+        # sometimes shorten "outputs/output_x_pro_3" to "output_x_pro_3"
+        # between tool calls, scattering artifacts across two directories
+        # within a single run. An absolute path leaves nothing to trim.
+        self.output_dir = (Path(output_base) / f"output_{self.run_id}_pro_{self.num_gen}").resolve()
         self.output_dir.mkdir(parents=True, exist_ok=True)
         seq_csv = self.output_dir / "generated_sequences.csv"
         if seq_csv.exists():
@@ -93,6 +104,7 @@ class AMP_Agents:
 
         self.user_prompt = user_prompt
         self.record_time_df = []
+        self.planning_steps = 0
 
         self.Planner = ChatGoogleGenerativeAI(**_model_kwargs(planner_model_id))
         self.Executor = ChatGoogleGenerativeAI(**_model_kwargs(executor_model_id))
@@ -214,9 +226,21 @@ class AMP_Agents:
             reporting_prompt = reporting_prompt.replace("{user_prompt}", self.user_prompt)
             reporting_prompt += f"\n\nUser Instruction: {self.user_prompt}\n\n"
 
-            df = pd.read_csv(self.output_dir / "generated_sequences.csv")
+            seq_csv = self.output_dir / "generated_sequences.csv"
+            if not seq_csv.exists():
+                print("[Planner] No generated_sequences.csv found -- nothing to report on.")
+                return state['stage']
+
+            df = pd.read_csv(seq_csv)
             report_columns = [col for col in df.columns if "report" in col]
-            df = df.dropna(subset=report_columns)
+            if report_columns:
+                df = df.dropna(subset=report_columns)
+            else:
+                # Run ended before any verification wrote a *_report column
+                # (e.g. the planning-step cap fired). Still write a report
+                # from whatever filter results exist rather than crashing.
+                print("[Planner] No verification report columns present; "
+                      "reporting on filter results only.")
 
             for i, row in df.iterrows():
                 reporting_prompt += f"\n\nFor the generated sequence {row['sequence']}:\n\n"
@@ -255,6 +279,14 @@ class AMP_Agents:
         self.log_response(state['stage'], prompt, think_str, plan_str)
 
         agent = root["Planning"]["Agent"]
+
+        self.planning_steps += 1
+        if self.planning_steps >= MAX_PLANNING_STEPS and agent != "END":
+            print(f"[Planner] Reached MAX_PLANNING_STEPS ({MAX_PLANNING_STEPS}); "
+                  f"forcing END so the run finishes with whatever candidates exist. "
+                  f"Raise MAX_PLANNING_STEPS if you want it to keep iterating.")
+            agent = "END"
+
         state['stage'] = agent
         state['messages'].append(plan_str)
 
@@ -333,12 +365,18 @@ class AMP_Agents:
         return state
 
     def run(self):
-        self.graph.invoke({
-            "stage": "Planning",
-            "executor": None,
-            "messages": [],
-            "from_exec": False,
-        })
+        # recursion_limit is LangGraph's own safety net, independent of
+        # MAX_PLANNING_STEPS above -- it raises rather than looping forever
+        # if anything slips past our counter.
+        self.graph.invoke(
+            {
+                "stage": "Planning",
+                "executor": None,
+                "messages": [],
+                "from_exec": False,
+            },
+            config={"recursion_limit": MAX_PLANNING_STEPS * 4},
+        )
 
 
 def parse_args():

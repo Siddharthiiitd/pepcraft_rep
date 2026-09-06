@@ -1,11 +1,39 @@
 import os
+import sys
 import pandas as pd
 import json
 from Bio.PDB import PDBParser
 from Bio.PDB.MMCIFParser import MMCIFParser
-from Bio.PDB.DSSP import DSSP
 from Bio.PDB.PDBIO import PDBIO
 from collections import Counter
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _dssp_lite import assign_secondary_structure
+
+# The original pipeline shelled out to the external `mkdssp` binary here.
+# That binary is often unavailable (and may be blocked outright by
+# corporate Application Control policies on Windows), which silently
+# failed EVERY structure classification with
+#   "Error: [WinError 2] The system cannot find the file specified"
+# and therefore failed every candidate at the structure filter.
+#
+# We now compute secondary structure in pure Python (_dssp_lite, a direct
+# Kabsch-Sander implementation) -- no external executable needed. Set
+# USE_EXTERNAL_MKDSSP=1 in the environment to prefer the real mkdssp
+# binary instead, falling back to the pure-Python path if it is missing.
+USE_EXTERNAL_MKDSSP = os.environ.get("USE_EXTERNAL_MKDSSP", "0") == "1"
+
+
+def _get_ss_codes(model, structure_path):
+    """Returns a list of DSSP single-letter codes for the structure."""
+    if USE_EXTERNAL_MKDSSP:
+        try:
+            from Bio.PDB.DSSP import DSSP
+            dssp = DSSP(model, structure_path, dssp="mkdssp")
+            return [dssp[key][2] for key in dssp.keys()]
+        except Exception as e:
+            print(f"[Structure_Filter] mkdssp unavailable ({e}); using built-in pure-Python DSSP.")
+    return assign_secondary_structure(structure_path)
 
 map_dssp_to_3class = {1: "Mixed (Alpha/Beta)", 2: "Alpha-Helical", 3: "Beta-Hairpin / Turn-Rich Beta", 4: "Extended Beta-Strand", 5: "Structured Turns / Bends", 6: "Unstructured / Random Coil"}
 
@@ -84,9 +112,11 @@ def Structure_Filter(input_data: dict) -> str:
                         if chain.id == " " or chain.id == "":
                             chain.id = "A"
 
-                    dssp = DSSP(model, structure_path, dssp='mkdssp')
-                    all_sec_structures = [dssp[key][2] for key in dssp.keys()]
+                    all_sec_structures = _get_ss_codes(model, structure_path)
                     total_residues = len(all_sec_structures)
+                    if total_residues == 0:
+                        df.at[index, 'structure_classification'] = "Error: no backbone residues parsed from structure"
+                        continue
                     counts = Counter(all_sec_structures)
 
                     classification_label = classify_peptide(counts, total_residues)
@@ -126,4 +156,3 @@ def Structure_Filter(input_data: dict) -> str:
     filter_text = f"Completed Filtering : {', '.join(reported_done)}"
     
     return report + "\n\n" + class_report + "\n" + filter_text
-

@@ -1,0 +1,34 @@
+sequence,damino_filter,cationicity_filter,hydrophobicity_filter,length_filter,predicted_structure_path,fasta_path,structure_classification,structure_filter
+FIIFvMltIF,1,0,0,1,,,Did not pass filters,0
+VVFTivKRRRW,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run2_pro_3\structure_output\seq_1.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run2_pro_3\fasta_input\seq_1.fasta,Unstructured / Random Coil,0
+NWKLVFyvaY,1,0,0,1,,,Did not pass filters,0
+VkNYCWRLTYVLFvLMWIIl,1,0,0,1,,,Did not pass filters,0
+rrMYyMALVLIQLNm,1,0,0,1,,,Did not pass filters,0
+WIRlVYSIWilfFLWVa,1,0,0,1,,,Did not pass filters,0
+YpKWYIhSYmmFRAmSKNI,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run2_pro_3\structure_output\seq_6.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run2_pro_3\fasta_input\seq_6.fasta,Alpha-Helical,1
+hplMiHYNQFYWK,1,0,0,1,,,Did not pass filters,0
+YiIvrRSMYnRCMHRDyLrW,1,1,0,1,,,Did not pass filters,0
+AIChMAKfYVGRT,1,0,1,1,,,Did not pass filters,0
+aFMQIkVafRILTAqAfYK,1,1,0,1,,,Did not pass filters,0
+GLQtYFWiTWyF,1,0,1,1,,,Did not pass filters,0
+AATKLvaKAMvCkAfCnC,1,1,0,1,,,Did not pass filters,0
+HlAtIMMpwRFRGfKW,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run2_pro_3\structure_output\seq_13.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run2_pro_3\fasta_input\seq_13.fasta,Unstructured / Random Coil,0
+IARWWKiWwLRtPWADFD,1,0,1,1,,,Did not pass filters,0
+LkWvAKIERMrAFfNQHQWA,1,1,0,1,,,Did not pass filters,0
+RlKHHmNRaA,1,1,0,1,,,Did not pass filters,0
+ItNKSAVrvQ,1,0,1,1,,,Did not pass filters,0
+AqWYrVSQWMrK,1,1,0,1,,,Did not pass filters,0
+YASmYwPLIrMM,1,0,1,1,,,Did not pass filters,0
+SPYkrKLYVYQ,1,1,0,1,,,Did not pass filters,0
+FMfFRALIFar,1,0,0,1,,,Did not pass filters,0
+pRSLcADmkKNWSF,1,0,0,1,,,Did not pass filters,0
+LPLWNMrIrRWWMRvKMTPD,1,1,0,1,,,Did not pass filters,0
+YKaEWFCQMVnsyL,1,0,1,1,,,Did not pass filters,0
+RKGRYDVlKnGA,1,1,0,1,,,Did not pass filters,0
+AFVVRnMYWmV,1,0,0,1,,,Did not pass filters,0
+WGHkKRFwLFFmKL,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run2_pro_3\structure_output\seq_27.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run2_pro_3\fasta_input\seq_27.fasta,Alpha-Helical,1
+kFRKLkQGIryGWYMRkMI,1,1,0,1,,,Did not pass filters,0
+LALrLTLHYCrcV,1,0,0,1,,,Did not pass filters,0
+VLpIFVHFMmDkWLlGKM,1,0,0,1,,,Did not pass filters,0
+KIIwMFMVeawVKLWlsAR,1,0,0,1,,,Did not pass filters,0
+wQVAILAfwFPRIK,1,0,0,1,,,Did not pass filters,0
