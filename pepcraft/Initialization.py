@@ -52,7 +52,7 @@ if "GOOGLE_API_KEY" not in os.environ:
 # Planning -> Generating -> Filtering -> Planning forever, chasing a target
 # candidate count that a low filter pass rate may never reach -- which is
 # why runs previously had to be killed with Ctrl+C.
-MAX_PLANNING_STEPS = 12
+MAX_PLANNING_STEPS = 20
 
 MAX_RESPONSE_RETRIES = 5   # cap on malformed-JSON retries for a single LLM call
 MAX_EXECUTOR_RETRIES = 5   # cap on tool-execution-error retries per plan step
