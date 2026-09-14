@@ -1,0 +1,39 @@
+sequence,length_filter,cationicity_filter,hydrophobicity_filter,damino_filter,predicted_structure_path,fasta_path,structure_classification,structure_filter,swissprot_report,dbaasp_report
+LrPIMCMFITFFAyRRyQIW,1,1,0,1,,,Did not pass filters,0,,
+mrQSKGSNgLIIVFQ,1,0,1,1,,,Did not pass filters,0,,
+VMIvnMgGWmpLAlKYTHW,1,0,0,1,,,Did not pass filters,0,,
+KPWMRVGkFEfYYwWh,1,0,0,1,,,Did not pass filters,0,,
+MVFmAaQVWmKMrVM,1,0,0,1,,,Did not pass filters,0,,
+hSYMFKIRrlESglHLLR,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_2\structure_output\seq_5.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_2\fasta_input\seq_5.fasta,Alpha-Helical,1,"HSYMFKIRRLESGLHLLR
+[1] NOVEL -- no similar protein found anywhere in SwissProt.
+","Closest known AMP in DBAASP: LSEI_2386, m2386 | Identity: 66.67% | Query coverage: 50.0% | alignment score: 24.0"
+PEIKQFyyFAV,1,0,1,1,,,Did not pass filters,0,,
+FGlRNIYLpYhViWkQMYVE,1,0,1,1,,,Did not pass filters,0,,
+LqMRQWrlPHRWeCLV,1,0,0,1,,,Did not pass filters,0,,
+TkDIQRGIYkPIaWQlAff,1,0,1,1,,,Did not pass filters,0,,
+YIRAIiTDIPQlGMGIrA,1,0,0,1,,,Did not pass filters,0,,
+ALAvrTwICI,1,0,0,1,,,Did not pass filters,0,,
+yIIIIiDiYGVGRQnCIW,1,0,0,1,,,Did not pass filters,0,,
+LnWNVYrvCiHvTQFVmKY,1,0,1,1,,,Did not pass filters,0,,
+MMQWYCRfyIwyR,1,0,1,1,,,Did not pass filters,0,,
+IDYAwIKKIqyNLYMFrAQL,1,0,1,1,,,Did not pass filters,0,,
+RLYmkVcDIiRVWQYLlr,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_2\structure_output\seq_16.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_2\fasta_input\seq_16.fasta,Alpha-Helical,1,"RLYMKVCDIIRVWQYLLR
+[1] NOVEL -- no similar protein found anywhere in SwissProt.
+",No match in DBAASP -- not similar to any known antimicrobial peptide.
+KCTVAiEVwKRY,1,0,1,1,,,Did not pass filters,0,,
+lvFAMKAQcKRNRK,1,1,0,1,,,Did not pass filters,0,,
+IMMHGFyTkSSk,1,0,1,1,,,Did not pass filters,0,,
+fVvNREsMLRRYy,1,0,0,1,,,Did not pass filters,0,,
+KKvfeLCRCRGLAWLIyL,1,1,0,1,,,Did not pass filters,0,,
+iHnaWksYKIWIKMYLsIK,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_2\structure_output\seq_22.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_2\fasta_input\seq_22.fasta,Alpha-Helical,1,"IHNAWKSYKIWIKMYLSIK
+[1] Closest SwissProt protein: Q48501 | Identity: 41.18% | Query coverage: 89.47% | alignment score: 34.5
+","Closest known AMP in DBAASP: Parabutoporin, PP, Non-disulfide-bridged peptide 3.2, NDBP-3.2 | Identity: 57.14% | Query coverage: 36.84% | alignment score: 25.0 (LOW COVERAGE -- only a short sub-region aligned, weak evidence)"
+TRHYMYcwvKMGYYKK,1,1,0,1,,,Did not pass filters,0,,
+YSkMRWIIQNIHVMwv,1,0,1,1,,,Did not pass filters,0,,
+WAFIqIrFMF,1,0,0,1,,,Did not pass filters,0,,
+LmYRpKFYIkKIKQVMwK,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_2\structure_output\seq_26.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_2\fasta_input\seq_26.fasta,Alpha-Helical,1,"LMYRPKFYIKKIKQVMWK
+[1] Closest SwissProt protein: P85054 | Identity: 53.85% | Query coverage: 72.22% | alignment score: 30.0
+","Closest known AMP in DBAASP: Cathelicidin TS-CATH, Vipericidin | Identity: 46.67% | Query coverage: 83.33% | alignment score: 27.0"
+WWsrKRLMrSRYAkDKtY,1,1,0,1,,,Did not pass filters,0,,
+KPIKyMkkLVWDiV,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_2\structure_output\seq_28.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_2\fasta_input\seq_28.fasta,Unstructured / Random Coil,0,,
+AvmCCRYLYN,1,0,0,1,,,Did not pass filters,0,,

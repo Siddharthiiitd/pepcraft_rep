@@ -387,21 +387,62 @@ def parse_args():
                          help="List of target sequence counts to run, one full pipeline pass each.")
     parser.add_argument("--species", default="ecoli",
                          choices=["ecoli", "paeruginosa", "kpneumoniae", "saureus", "bsubtilis", "sepidermidis"])
+    parser.add_argument("--prompt", default=None,
+                         help="Your own request, in plain English, overriding the built-in template. "
+                              "Wrap it in quotes. Use {n} anywhere you want the value from --counts "
+                              "substituted in, e.g. \"Design {n} peptides that ...\". Whatever you write "
+                              "is what the Planning agent receives, so state the target count, length "
+                              "range and any filter thresholds you want applied.")
+    parser.add_argument("--interactive", action="store_true",
+                         help="Type your request at a prompt instead of passing --prompt.")
     parser.add_argument("--planner_model", default="gemini-3.1-pro-preview")
     parser.add_argument("--executor_model", default="gemini-3.1-flash-lite-preview")
     return parser.parse_args()
 
 
+DEFAULT_PROMPT_TEMPLATE = (
+    "Design exactly {n} AMP sequences with D-amino acids targeting {species}. "
+    "The target length is 10 - 20. Apply physicochemical filters for cationicity "
+    "(range: 2 to 8) and hydrophobicity (range: -0.5 to 0.5). The preferred structure "
+    "is alpha-helix (class 2). Use AMPGAN-v3 to generate. Please cross-reference "
+    "against both the local SwissProt and local DBAASP databases and explain the candidate."
+)
+
+
+def build_prompt(args, n):
+    """Resolve the request the Planning agent will receive.
+
+    Precedence: --prompt > --interactive > built-in template.
+    A custom prompt may contain {n} and {species} placeholders; anything else
+    is passed through verbatim, so the user is free to ask for a different
+    structure class, different thresholds, or to skip a stage entirely.
+    """
+    if args.prompt:
+        raw = args.prompt
+    elif args.interactive:
+        print("\nDescribe what you want designed. Be specific about the number of")
+        print("candidates, length range, and any charge/hydrophobicity/structure")
+        print("requirements -- the planning agent only knows what you tell it.")
+        print(f"Press Enter with no input to use the default template.\n")
+        raw = input("Request> ").strip()
+        if not raw:
+            raw = DEFAULT_PROMPT_TEMPLATE
+    else:
+        raw = DEFAULT_PROMPT_TEMPLATE
+
+    try:
+        return raw.format(n=n, species=args.species)
+    except (KeyError, IndexError):
+        # The prompt contains braces that aren't {n}/{species} -- treat the
+        # whole thing as literal text rather than failing the run.
+        return raw
+
+
 if __name__ == "__main__":
     args = parse_args()
     for n in args.counts:
-        user_prompt = (
-            f"Design exactly {n} AMP sequences with D-amino acids targeting {args.species}. "
-            f"The target length is 10 - 20. Apply physicochemical filters for cationicity "
-            f"(range: 2 to 8) and hydrophobicity (range: -0.5 to 0.5). The preferred structure "
-            f"is alpha-helix (class 2). Use AMPGAN-v3 to generate. Please cross-reference "
-            f"against both the local SwissProt and local DBAASP databases and explain the candidate."
-        )
+        user_prompt = build_prompt(args, n)
+        print(f"\n=== Request being sent to the planner ===\n{user_prompt}\n")
         agent = AMP_Agents(
             user_prompt,
             run_id=args.run_id,

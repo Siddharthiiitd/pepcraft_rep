@@ -1,35 +1,39 @@
-sequence,length_filter,cationicity_filter,hydrophobicity_filter,damino_filter,predicted_structure_path,fasta_path,structure_classification,structure_filter,swissprot_report,dbaasp_report
-ILWNKsvlWRVYKAMNW,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_0.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_0.fasta,Alpha-Helical,1,"ILWNKSVLWRVYKAMNW
+sequence,damino_filter,length_filter,cationicity_filter,hydrophobicity_filter,predicted_structure_path,fasta_path,structure_classification,structure_filter,swissprot_report,dbaasp_report
+MYFiFvRSKFpsrPNK,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_0.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_0.fasta,Unstructured / Random Coil,0,,
+YrcGMVKGMiwVFHkRFRlK,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_1.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_1.fasta,Unstructured / Random Coil,0,,
+RKMpKCDRCWMvIQfHF,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_2.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_2.fasta,Unstructured / Random Coil,0,,
+mGHWIRQCwEKfCIAqI,1,1,0,1,,,Did not pass filters,0,,
+YIKKRyGGVRpWYAYp,1,1,1,0,,,Did not pass filters,0,,
+mfMaEfNAVRAQLYVPRY,1,1,0,1,,,Did not pass filters,0,,
+RMgKWRKLLFkI,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_6.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_6.fasta,Unstructured / Random Coil,0,,
+IiRCVLkWARFFGKCRiC,1,1,1,0,,,Did not pass filters,0,,
+FaEAfCMRKkVLAfVsRR,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_8.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_8.fasta,Alpha-Helical,1,"FAEAFCMRKKVLAFVSRR
+[1] Closest SwissProt protein: P0C009 | Identity: 75.0% | Query coverage: 44.44% | alignment score: 23.0 (LOW COVERAGE -- only a short sub-region aligned, treat this hit as weak evidence)
+",Closest known AMP in DBAASP: Nigrocin-1-OA3 | Identity: 43.75% | Query coverage: 88.89% | alignment score: 25.0
+PwrEVYeYWsMDH,1,1,0,0,,,Did not pass filters,0,,
+RtGMQwVfQGyWYLqKVF,1,1,0,1,,,Did not pass filters,0,,
+RRnPwKeLQmgFYRdALHV,1,1,0,0,,,Did not pass filters,0,,
+HyIAFwIcAsGI,1,1,0,0,,,Did not pass filters,0,,
+rFKWKIfRiLIVGykNIkV,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_13.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_13.fasta,Alpha-Helical,1,"RFKWKIFRILIVGYKNIKV
 [1] NOVEL -- no similar protein found anywhere in SwissProt.
-","Closest known AMP in DBAASP: PMAP-23, Myeloid antibacterial peptide 23 | Identity: 80.0% | Query coverage: 29.41% | alignment score: 25.0 (LOW COVERAGE -- only a short sub-region aligned, weak evidence)"
-WvQRRwNYKLnVYRhKdLY,1,1,0,1,,,Did not pass filters,0,,
-ALTWvYnWQVA,1,0,1,1,,,Did not pass filters,0,,
-yAVFIFLyYRINYGIhVg,1,0,0,1,,,Did not pass filters,0,,
-DYlIKIiYlRiMGSyM,1,0,0,1,,,Did not pass filters,0,,
-vmvHAVMCRDyAFAVG,1,0,0,1,,,Did not pass filters,0,,
-vRmLYAYPPr,1,0,1,1,,,Did not pass filters,0,,
-FQaTqmRmALSHKKHH,1,1,0,1,,,Did not pass filters,0,,
-LAIWKSspRHrRw,1,1,0,1,,,Did not pass filters,0,,
-LHkmQYVAIMRwRMKS,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_9.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_9.fasta,Alpha-Helical,1,"LHKMQYVAIMRWRMKS
-[1] Closest SwissProt protein: P24627 | Identity: 80.0% | Query coverage: 31.25% | alignment score: 27.0 (LOW COVERAGE -- only a short sub-region aligned, treat this hit as weak evidence)
-","Closest known AMP in DBAASP: Lactoferricin-B, Lfcin-B | Identity: 80.0% | Query coverage: 31.25% | alignment score: 27.0 (LOW COVERAGE -- only a short sub-region aligned, weak evidence)"
-IIwMNQyPvECkfK,1,0,1,1,,,Did not pass filters,0,,
-FARpkIrVAkFKWAWYe,1,1,0,1,,,Did not pass filters,0,,
-wRQITFYaKPViWYiF,1,0,1,1,,,Did not pass filters,0,,
-DwYaTMAKmN,1,0,0,1,,,Did not pass filters,0,,
-QDIYfPlMyIVNkKL,1,0,1,1,,,Did not pass filters,0,,
-QAVAdvWLkY,1,0,1,1,,,Did not pass filters,0,,
-LVkAfEqiFWEwIwHAYIW,1,0,1,1,,,Did not pass filters,0,,
-MFWyDVkYLWlWkAWTYKW,1,0,1,1,,,Did not pass filters,0,,
-NmrkhNQFRFIRMkMK,1,1,0,1,,,Did not pass filters,0,,
-KLLcEVWvsMP,1,0,0,1,,,Did not pass filters,0,,
-VLWWFARCIKkFIFMtKsVG,1,1,0,1,,,Did not pass filters,0,,
-ATKKrYWIKWSywm,1,1,0,1,,,Did not pass filters,0,,
-rNRYEMYTWYRAPrRVWVlL,1,1,0,1,,,Did not pass filters,0,,
-RALKgYHYLkkHiFIFPVY,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_23.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_23.fasta,Unstructured / Random Coil,0,,
-ylmLMWIKKID,1,0,0,1,,,Did not pass filters,0,,
-fMyIAFFAvMvWK,1,0,0,1,,,Did not pass filters,0,,
-WFCFAClFaKQ,1,0,0,1,,,Did not pass filters,0,,
-YYSMeLDrIKECpiLIvNY,1,0,1,1,,,Did not pass filters,0,,
-YKfqIHWRLpLICHMk,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_28.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_28.fasta,Unstructured / Random Coil,0,,
-LYfyYFswaFfAKVQFM,1,0,0,1,,,Did not pass filters,0,,
+",Closest known AMP in DBAASP: Cecropin-A Gm | Identity: 43.75% | Query coverage: 84.21% | alignment score: 38.0
+gECYVfwMiFLaVGVMvA,1,1,0,0,,,Did not pass filters,0,,
+TANFyfNKYRpVWY,1,1,0,0,,,Did not pass filters,0,,
+vAwAAEYvPIYRatFNtNW,1,1,0,1,,,Did not pass filters,0,,
+VGPKlVFQFELLLHWAqFfm,1,1,0,0,,,Did not pass filters,0,,
+AGQNFfiwvAT,1,1,0,0,,,Did not pass filters,0,,
+ciRVeMGmFIRgPWNW,1,1,0,1,,,Did not pass filters,0,,
+alSSKMAMWVHKAFvweWQ,1,1,0,1,,,Did not pass filters,0,,
+VQARmCWIrskWIMLKRK,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_21.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_21.fasta,Alpha-Helical,1,"VQARMCWIRSKWIMLKRK
+[1] Closest SwissProt protein: P83306 | Identity: 83.33% | Query coverage: 33.33% | alignment score: 25.0 (LOW COVERAGE -- only a short sub-region aligned, treat this hit as weak evidence)
+",Closest known AMP in DBAASP: Cathelicidin WAM2 | Identity: 60.0% | Query coverage: 55.56% | alignment score: 29.0
+FaDRKKlNALAVDTy,1,1,0,1,,,Did not pass filters,0,,
+LTQKWLYFAliKR,1,1,1,1,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\structure_output\seq_23.pdb,C:\Users\siddh\OneDrive\Desktop\IO\AMPGANv3\pepcraft\outputs\output_run4_pro_3\fasta_input\seq_23.fasta,Alpha-Helical,1,"LTQKWLYFALIKR
+[1] Closest SwissProt protein: C5H0D4 | Identity: 100.0% | Query coverage: 38.46% | alignment score: 23.0 (LOW COVERAGE -- only a short sub-region aligned, treat this hit as weak evidence)
+","Closest known AMP in DBAASP: Esculentin-2-AL-a, Amolopin-9a antimicrobial peptide | Identity: 100.0% | Query coverage: 38.46% | alignment score: 23.0 (LOW COVERAGE -- only a short sub-region aligned, weak evidence)"
+EDVtIQFYkDMhNfFiMKNG,1,1,0,1,,,Did not pass filters,0,,
+TFWRkWCpRWI,1,1,1,0,,,Did not pass filters,0,,
+FFMLeFGKgi,1,1,0,0,,,Did not pass filters,0,,
+ASaYVlPSfYRmSV,1,1,0,0,,,Did not pass filters,0,,
+VWMFlVaQSimiLAkLAE,1,1,0,0,,,Did not pass filters,0,,
+drHKwRIrYVDYTARTG,1,1,1,0,,,Did not pass filters,0,,
