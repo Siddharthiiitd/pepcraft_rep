@@ -10,8 +10,8 @@ wheels/
 # Virtual environments
 .venv
 
-*/logs_*/
-/outputs/
-   generated_amp_sequences/
-*/test/
+logs_*/
+outputs/
+generated_amp_sequences/
+test_out/
 .kmer_index_*.pkl
